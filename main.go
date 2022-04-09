@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"os"
 	"regexp"
@@ -35,9 +34,8 @@ func main() {
 	var rep report
 
 	repos := []Repo{}
-	languages := &rep.Languages
-	fmt.Println("languages are here:", languages)
-
+	testing := make(map[string]interface{})
+	languages := map[string]int{}
 
 	c.OnHTML("article.Box-row h1", func(e *colly.HTMLElement) {
 		link := e.Request.AbsoluteURL(e.ChildAttr("a", "href"))
@@ -73,6 +71,9 @@ func main() {
 			languageClean = r.FindString(language)
 		} 
 		repo.Language = languageClean
+		if languageClean != "Attribute missing" {
+			languages[languageClean]++
+		}
 
 		totalStars := e.ChildText("#repo-stars-counter-star")
 		repo.TotalStars = totalStars
@@ -83,17 +84,19 @@ func main() {
 		pr := e.ChildText("#pull-requests-repo-tab-count")
 		repo.PR = pr
 
+		testing[repo.Name] = repo
+
 		repos = append(repos, repo)
 	})
 
 	d.OnError(func(r *colly.Response, err error) {
-		fmt.Println("Request URL:", r.Request.URL, "failed with response:", r, "\nError:", err)
+		log.Println("Request URL:", r.Request.URL, "failed with response:", r, "\nError:", err)
 	})
 
 	d.OnScraped(func(r *colly.Response) {
-		fmt.Println("Finished", r.Request.URL)
+		log.Println("Finished", r.Request.URL)
 		counter += 1
-		fmt.Println("Counter is:", counter)
+		log.Println("Counter is:", counter)
 		if counter == 25 {
 			rep.Repo = repos
 		
@@ -101,21 +104,27 @@ func main() {
 			if err != nil {
 				log.Fatal(err)
 			}
-			data := string(js)
-			fmt.Println("data is:", data)
-
 			// write to file
-			if err := os.WriteFile("repos.json", js, 0664); err == nil {
-				fmt.Println("Data written to file successfully")
+			if err := os.WriteFile("repos.json", js, 0664); err != nil {
+				log.Fatal(err)
+			} else {
+				log.Println("Data written to file successfully")
 			}
 		}
 	})
 
 	c.Visit(url) 
 
-	enc := json.NewEncoder(os.Stdout)
-	enc.SetIndent("", "  ")
+	// enc := json.NewEncoder(os.Stdout)
+	// enc.SetIndent("", "  ")
 
-	// Dump json to the standard output
-	enc.Encode(repos)
+	// // Dump json to the standard output
+	// enc.Encode(repos)
+	testing["languages"] = languages
+	js, err := json.MarshalIndent(testing, "", "    ")
+	if err != nil {
+		log.Fatal(err)
+	}
+	data := string(js)
+	log.Println("here is the final test...", data)
 }
