@@ -5,28 +5,39 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"regexp"
 	s "strings"
 
 	"github.com/gocolly/colly"
 )
 
+type report struct {
+	Languages map[string]int
+	Repo []Repo
+}
+
 type Repo struct {
-	Name string
-	Description string
-	Language string
-	TotalStars string
-	Issues string
-	PR string
-	URL string
+	Name string `json:"name"`
+	Description string `json:"description"`
+	Language string `json:"language"`
+	TotalStars string `json:"total_stars"`
+	Issues string `json:"issues"`
+	PR string `json:"pr"`
+	URL string `json:"url"`
 }
 
 func main() {
 	url := "https://github.com/trending/"
-	// url := "https://github.com/BoomingTech/Pilot"
 	c := colly.NewCollector()
 	d := c.Clone()
+	counter := 0
 
-	repos := make([]Repo, 0)
+	var rep report
+
+	repos := []Repo{}
+	languages := &rep.Languages
+	fmt.Println("languages are here:", languages)
+
 
 	c.OnHTML("article.Box-row h1", func(e *colly.HTMLElement) {
 		link := e.Request.AbsoluteURL(e.ChildAttr("a", "href"))
@@ -53,24 +64,23 @@ func main() {
 		if description != "" {
 			descriptionClean = s.Split(description, "\n")[0]
 		} 
-		// fmt.Println("description:", descriptionClean)
-		// fmt.Println("description:", description)
 		repo.Description = descriptionClean
 
 		language := e.ChildText("li.d-inline a span")
-		// fmt.Println("language:", language)
-		repo.Language = language
+		languageClean := "Attribute missing"
+		if language != "" {
+			r, _ := regexp.Compile("[A-Za-z+#]+")
+			languageClean = r.FindString(language)
+		} 
+		repo.Language = languageClean
 
 		totalStars := e.ChildText("#repo-stars-counter-star")
-		// fmt.Println("totalStars:", totalStars)
 		repo.TotalStars = totalStars
 		
 		issues := e.ChildText("#issues-repo-tab-count")
-		// fmt.Println("issues:", issues)
 		repo.Issues = issues
 
 		pr := e.ChildText("#pull-requests-repo-tab-count")
-		// fmt.Println("pr:", pr)
 		repo.PR = pr
 
 		repos = append(repos, repo)
@@ -82,15 +92,30 @@ func main() {
 
 	d.OnScraped(func(r *colly.Response) {
 		fmt.Println("Finished", r.Request.URL)
-		js, err := json.MarshalIndent(repos, "", "    ")
-		if err != nil {
-			log.Fatal(err)
-		}
-		fmt.Println("Writing data to file")
-		if err := os.WriteFile("repos.json", js, 0664); err == nil {
-			fmt.Println("Data written to file successfully")
+		counter += 1
+		fmt.Println("Counter is:", counter)
+		if counter == 25 {
+			rep.Repo = repos
+		
+			js, err := json.MarshalIndent(repos, "", "    ")
+			if err != nil {
+				log.Fatal(err)
+			}
+			data := string(js)
+			fmt.Println("data is:", data)
+
+			// write to file
+			if err := os.WriteFile("repos.json", js, 0664); err == nil {
+				fmt.Println("Data written to file successfully")
+			}
 		}
 	})
 
-	c.Visit(url)
+	c.Visit(url) 
+
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+
+	// Dump json to the standard output
+	enc.Encode(repos)
 }
