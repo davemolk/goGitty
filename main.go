@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"log"
-	"os"
 	"regexp"
 	s "strings"
 
@@ -12,7 +11,7 @@ import (
 
 type report struct {
 	Languages map[string]int
-	Repo []Repo
+	Repos map[string]Repo
 }
 
 type Repo struct {
@@ -29,13 +28,13 @@ func main() {
 	url := "https://github.com/trending/"
 	c := colly.NewCollector()
 	d := c.Clone()
-	counter := 0
 
-	var rep report
-
-	repos := []Repo{}
-	testing := make(map[string]interface{})
+	repos := map[string]Repo{}
 	languages := map[string]int{}
+	rep := report{
+		Languages: languages,
+		Repos: repos,
+	}
 
 	c.OnHTML("article.Box-row h1", func(e *colly.HTMLElement) {
 		link := e.Request.AbsoluteURL(e.ChildAttr("a", "href"))
@@ -84,47 +83,23 @@ func main() {
 		pr := e.ChildText("#pull-requests-repo-tab-count")
 		repo.PR = pr
 
-		testing[repo.Name] = repo
-
-		repos = append(repos, repo)
+		repos[repo.Name] = repo
 	})
 
 	d.OnError(func(r *colly.Response, err error) {
 		log.Println("Request URL:", r.Request.URL, "failed with response:", r, "\nError:", err)
 	})
 
-	d.OnScraped(func(r *colly.Response) {
-		log.Println("Finished", r.Request.URL)
-		counter += 1
-		log.Println("Counter is:", counter)
-		if counter == 25 {
-			rep.Repo = repos
-		
-			js, err := json.MarshalIndent(repos, "", "    ")
-			if err != nil {
-				log.Fatal(err)
-			}
-			// write to file
-			if err := os.WriteFile("repos.json", js, 0664); err != nil {
-				log.Fatal(err)
-			} else {
-				log.Println("Data written to file successfully")
-			}
-		}
-	})
-
 	c.Visit(url) 
 
-	// enc := json.NewEncoder(os.Stdout)
-	// enc.SetIndent("", "  ")
+	rep.Languages = languages
+	rep.Repos = repos
 
-	// // Dump json to the standard output
-	// enc.Encode(repos)
-	testing["languages"] = languages
-	js, err := json.MarshalIndent(testing, "", "    ")
+	js, err := json.MarshalIndent(rep, "", "\t")
 	if err != nil {
 		log.Fatal(err)
 	}
-	data := string(js)
-	log.Println("here is the final test...", data)
+	deets := string(js)
+	log.Println("do something with data", deets)
+
 }
