@@ -5,11 +5,13 @@ import (
 	"log"
 	"regexp"
 	s "strings"
+	"time"
 
 	"github.com/gocolly/colly"
 )
 
 type report struct {
+	ScrapedAt string
 	Languages map[string]int
 	Repos map[string]Repo
 }
@@ -29,9 +31,11 @@ func main() {
 	c := colly.NewCollector()
 	d := c.Clone()
 
+	scrapedAt := time.Now().Format("2006-01-02")
 	repos := map[string]Repo{}
 	languages := map[string]int{}
 	rep := report{
+		ScrapedAt: scrapedAt,
 		Languages: languages,
 		Repos: repos,
 	}
@@ -94,6 +98,7 @@ func main() {
 
 	rep.Languages = languages
 	rep.Repos = repos
+
 
 	js, err := json.MarshalIndent(rep, "", "\t")
 	if err != nil {
