@@ -34,6 +34,9 @@ func main() {
 	c := colly.NewCollector()
 	d := c.Clone()
 
+	// send email if alarm is triggered
+	alarm := false
+
 	scrapedAt := time.Now().Format("2006-01-02")
 	repos := map[string]Repo{}
 	languages := map[string]int{}
@@ -98,10 +101,9 @@ func main() {
 
 		repos[repo.Name] = repo
 
-		if errorWatcher > 0 {
-			// need to include the url here
-			message := []byte("there's a possible problem with gitty, please review:")
-			email(message)
+		// set threshold
+		if errorWatcher > 2 {
+			alarm = true
 		}
 	})
 
@@ -121,6 +123,11 @@ func main() {
 	}
 	deets := string(js)
 	log.Println("do something with data", deets)
+
+	if alarm {
+		message := []byte("possible issue with gitty, please check")
+		email(message)
+	}
 
 } 
 
