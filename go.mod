@@ -2,7 +2,10 @@ module github.com/davemolk/goGitty
 
 go 1.17
 
-require github.com/gocolly/colly v1.2.0
+require (
+	github.com/gocolly/colly v1.2.0
+	github.com/joho/godotenv v1.4.0
+)
 
 require (
 	github.com/PuerkitoBio/goquery v1.8.0 // indirect

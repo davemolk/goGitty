@@ -3,11 +3,14 @@ package main
 import (
 	"encoding/json"
 	"log"
+	"net/smtp"
+	"os"
 	"regexp"
 	s "strings"
 	"time"
 
 	"github.com/gocolly/colly"
+	"github.com/joho/godotenv"
 )
 
 type report struct {
@@ -48,12 +51,14 @@ func main() {
 
 	d.OnHTML("div.application-main", func(e *colly.HTMLElement) {
 		repo := Repo{}
+		errorWatcher := 0
 
 		name := e.ChildText("strong a")
 		if name != "" {
 			name = s.Replace(name, "-", " ", -1)
 		} else {
 			name = "Attribute missing"
+			errorWatcher += 1
 		}
 		repo.Name = name
 
@@ -64,7 +69,9 @@ func main() {
 		descriptionClean := "Attribute missing"
 		if description != "" {
 			descriptionClean = s.Split(description, "\n")[0]
-		} 
+		} else {
+			errorWatcher += 1
+		}
 		repo.Description = descriptionClean
 
 		language := e.ChildText("li.d-inline a span")
@@ -72,11 +79,13 @@ func main() {
 		if language != "" {
 			r, _ := regexp.Compile("[A-Za-z+#]+")
 			languageClean = r.FindString(language)
-		} 
+		} else {
+			errorWatcher += 1
+		}
 		repo.Language = languageClean
 		if languageClean != "Attribute missing" {
 			languages[languageClean]++
-		}
+		} 
 
 		totalStars := e.ChildText("#repo-stars-counter-star")
 		repo.TotalStars = totalStars
@@ -88,6 +97,12 @@ func main() {
 		repo.PR = pr
 
 		repos[repo.Name] = repo
+
+		if errorWatcher > 0 {
+			// need to include the url here
+			message := []byte("there's a possible problem with gitty, please review:")
+			email(message)
+		}
 	})
 
 	d.OnError(func(r *colly.Response, err error) {
@@ -107,4 +122,33 @@ func main() {
 	deets := string(js)
 	log.Println("do something with data", deets)
 
+} 
+
+func email(message []byte) {
+    err := godotenv.Load(".env")
+	if err != nil {
+		log.Fatalf("Error loading .env file")
+	}
+
+	from := os.Getenv("FROM")
+	password := os.Getenv("PASSWORD")
+
+	to := []string{
+		os.Getenv("TO"),
+	}
+	smtpHost := os.Getenv("SMTP_HOST")
+	smtpPort := os.Getenv("SMTP_PORT")
+
+	body := message
+
+	auth := smtp.PlainAuth("", from, password, smtpHost)
+
+	addr := s.Join([]string{smtpHost, smtpPort}, ":")
+
+	emailErr := smtp.SendMail(addr, auth, from, to, body)
+	if emailErr != nil {
+		log.Println(emailErr)
+		return
+	}
+	log.Printf("Email successfully sent to %s", to[0])
 }
