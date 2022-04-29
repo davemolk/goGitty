@@ -125,7 +125,8 @@ func main() {
 	log.Println("do something with data", deets)
 
 	if alarm {
-		message := []byte("possible issue with gitty, please check")
+		message := []byte(
+			"Subject: GitHub site issue\r\n" + "\r\n" + "please check gitty\r\n")
 		email(message)
 	}
 
